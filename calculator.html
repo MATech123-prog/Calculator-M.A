@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Professional Calculator</title>
+  <style>
+    :root{
+      --bg:#0f1724; --panel:#0b1220; --accent:#06b6d4; --muted:#94a3b8; --glass:rgba(255,255,255,0.03);
+      --btn:#0ea5a4; --danger:#ef4444; --soft:#111827; --card:#0b1220;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg),#071021);color:#e6eef6}
+    .app{max-width:420px;margin:36px auto;padding:20px;border-radius:14px;background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));box-shadow:0 10px 30px rgba(2,6,23,0.7)}
+    header{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+    header h1{font-size:18px;margin:0;color:var(--accent)}
+    .display{background:var(--card);padding:14px;border-radius:12px;min-height:84px;display:flex;flex-direction:column;justify-content:center;gap:6px}
+    .expr{font-size:14px;color:var(--muted);word-break:break-all}
+    .result{font-size:28px;font-weight:600}
+    .kbd{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:14px}
+    button.key{padding:12px;border-radius:10px;border:0;background:var(--glass);color:#dff6fb;font-size:16px;cursor:pointer;box-shadow:inset 0 -2px 0 rgba(0,0,0,0.2)}
+    button.key.secondary{background:transparent;color:var(--muted);font-weight:600}
+    button.key.action{background:linear-gradient(180deg,var(--accent),#0596a4);color:#041014}
+    button.key.op{background:linear-gradient(180deg,#1f2937,#111827);color:var(--accent)}
+    .wide{grid-column:span 2}
+    footer{display:flex;gap:8px;align-items:center;margin-top:12px;justify-content:space-between}
+    .small-btn{padding:6px 10px;border-radius:8px;border:0;background:rgba(255,255,255,0.03);color:var(--muted);cursor:pointer}
+    .danger-btn{padding:6px 10px;border-radius:8px;border:0;background:var(--danger);color:#fff;font-weight:600;cursor:pointer}
+    .history{max-height:160px;overflow:auto;margin-top:12px;padding:10px;border-radius:10px;background:rgba(255,255,255,0.02);font-size:13px}
+    .history-item{padding:6px;border-bottom:1px dashed rgba(255,255,255,0.02)}
+    @media (max-width:480px){.app{margin:16px;padding:14px}}
+  </style>
+</head>
+<body>
+  <div class="app" role="application" aria-label="Professional Calculator">
+    <header>
+      <h1>Professional Calculator</h1>
+      <div>
+        <button id="copyBtn" class="small-btn" title="Copy result">Copy</button>
+        <button id="clearHistory" class="small-btn" title="Clear history">Clear</button>
+      </div>
+    </header>
+
+    <section class="display" aria-live="polite">
+      <div id="expr" class="expr">0</div>
+      <div id="result" class="result">0</div>
+    </section>
+
+    <div class="kbd" role="list">
+      <button class="key secondary" data-action="mc">MC</button>
+      <button class="key secondary" data-action="mr">MR</button>
+      <button class="key secondary" data-action="mplus">M+</button>
+      <button class="key secondary" data-action="mminus">M-</button>
+      <button class="key secondary" data-action="ans">ANS</button>
+
+      <button class="key" data-value="7">7</button>
+      <button class="key" data-value="8">8</button>
+      <button class="key" data-value="9">9</button>
+      <button class="key op" data-value="/">÷</button>
+      <button class="key op" data-action="sqrt">√</button>
+
+      <button class="key" data-value="4">4</button>
+      <button class="key" data-value="5">5</button>
+      <button class="key" data-value="6">6</button>
+      <button class="key op" data-value="*">×</button>
+      <button class="key op" data-action="pow">xⁿ</button>
+
+      <button class="key" data-value="1">1</button>
+      <button class="key" data-value="2">2</button>
+      <button class="key" data-value="3">3</button>
+      <button class="key op" data-value="-">−</button>
+      <button class="key op" data-action="fact">n!</button>
+
+      <button class="key wide" data-value="0">0</button>
+      <button class="key" data-value=".">.</button>
+      <button class="key op" data-value="+">+</button>
+      <button class="key action" data-action="equals">=</button>
+
+      <button class="key secondary" data-action="sin">sin</button>
+      <button class="key secondary" data-action="cos">cos</button>
+      <button class="key secondary" data-action="tan">tan</button>
+      <button class="key secondary" data-action="ln">ln</button>
+      <button class="key secondary" data-action="log">log</button>
+    </div>
+
+    <footer>
+      <div class="muted">Mode: <span id="mode">RAD</span></div>
+      <div>
+        <button id="toggleMode" class="small-btn">DEG/RAD</button>
+        <button id="del" class="small-btn">DEL</button>
+        <button id="clearAll" class="danger-btn">AC</button>
+      </div>
+    </footer>
+
+    <div id="history" class="history" aria-label="Calculation history"></div>
+  </div>
+
+  <script>
+    const exprEl = document.getElementById('expr')
+    const resEl = document.getElementById('result')
+    const keys = document.querySelectorAll('button.key')
+    const historyEl = document.getElementById('history')
+    let expr = ''
+    let memory = 0
+    let lastAns = 0
+    let mode = 'RAD'
+
+    function updateDisplay(){
+      exprEl.textContent = expr || '0'
+      try{
+        const val = safeEval(expr)
+        resEl.textContent = (val==null||val===Infinity||isNaN(val))? 'Error' : trimNumber(val)
+      }catch(e){resEl.textContent='Error'}
+    }
+
+    function trimNumber(n){
+      if(!isFinite(n)) return String(n)
+      if(Math.abs(n) < 1e-10) return '0'
+      return Number.isInteger(n) ? n.toString() : (Math.round(n * 1e12) / 1e12).toString()
+    }
+
+    function safeEval(s){
+      if(!s) return 0
+      s = s.replace(/÷/g, '/').replace(/×/g, '*').replace(/−/g,'-')
+      s = s.replace(/(\d+(?:\.\d+)?|ANS|Math\.[a-zA-Z]+)\s*\^\s*(\d+(?:\.\d+)?)/g, 'Math.pow($1,$2)')
+      const context = {
+        sin: v => mode==='DEG' ? Math.sin(v * Math.PI/180) : Math.sin(v),
+        cos: v => mode==='DEG' ? Math.cos(v * Math.PI/180) : Math.cos(v),
+        tan: v => mode==='DEG' ? Math.tan(v * Math.PI/180) : Math.tan(v),
+        ln: v => Math.log(v),
+        log: v => Math.log10(v),
+        sqrt: v => Math.sqrt(v),
+        pow: (a,b) => Math.pow(a,b),
+        fact: v => factorial(v),
+        ANS: lastAns
+      }
+      s = s.replace(/\b(sin|cos|tan|ln|log|sqrt|pow|fact|ANS)\b/g, 'context.$1')
+      return Function('context','with(context){return '+ s + '}')(context)
+    }
+
+    function factorial(n){
+      n = Number(n)
+      if(!Number.isInteger(n) || n < 0) return NaN
+      if(n === 0) return 1
+      let f = 1
+      for(let i=1;i<=n;i++) f *= i
+      return f
+    }
+
+    function pushHistory(input, output){
+      const div = document.createElement('div')
+      div.className = 'history-item'
+      div.textContent = input + ' = ' + output
+      historyEl.prepend(div)
+    }
+
+    keys.forEach(k=>{
+      k.addEventListener('click', ()=>{
+        const v = k.dataset.value
+        const action = k.dataset.action
+        if(v) { expr += v; updateDisplay(); return }
+        if(action){ handleAction(action) }
+      })
+    })
+
+    function handleAction(a){
+      switch(a){
+        case 'equals':
+          try{
+            const val = safeEval(expr)
+            const out = trimNumber(val)
+            pushHistory(expr || '0', out)
+            lastAns = val
+            expr = String(out)
+            updateDisplay()
+          }catch(e){resEl.textContent='Error'}
+          break
+        case 'sqrt': expr = 'sqrt(' + (expr||'') + ')'; updateDisplay(); break
+        case 'pow': expr += 'pow('; updateDisplay(); break
+        case 'fact': expr += 'fact(' + (expr||'') + ')'; updateDisplay(); break
+        case 'sin': expr += 'sin('; updateDisplay(); break
+        case 'cos': expr += 'cos('; updateDisplay(); break
+        case 'tan': expr += 'tan('; updateDisplay(); break
+        case 'ln': expr += 'ln('; updateDisplay(); break
+        case 'log': expr += 'log('; updateDisplay(); break
+        case 'mc': memory = 0; break
+        case 'mr': expr += String(memory); updateDisplay(); break
+        case 'mplus': memory += Number(safeEval(expr)||0); break
+        case 'mminus': memory -= Number(safeEval(expr)||0); break
+        case 'ans': expr += 'ANS'; updateDisplay(); break
+        default: break
+      }
+    }
+
+    document.getElementById('toggleMode').addEventListener('click', ()=>{ mode = (mode==='RAD')? 'DEG':'RAD'; document.getElementById('mode').textContent = mode })
+    document.getElementById('del').addEventListener('click', ()=>{ expr = expr.slice(0,-1); updateDisplay() })
+    document.getElementById('clearAll').addEventListener('click', ()=>{ expr=''; resEl.textContent='0'; exprEl.textContent='0' })
+    document.getElementById('copyBtn').addEventListener('click', ()=>{ navigator.clipboard?.writeText(resEl.textContent).then(()=>alert('Copied')) })
+    document.getElementById('clearHistory').addEventListener('click', ()=>{ historyEl.innerHTML=''; expr=''; resEl.textContent='0'; exprEl.textContent='0' })
+
+    window.addEventListener('keydown', (e)=>{
+      if(e.key >= '0' && e.key <= '9') { expr += e.key }
+      else if(e.key === '.') expr += '.'
+      else if(e.key === 'Enter') handleAction('equals')
+      else if(e.key === 'Backspace') expr = expr.slice(0,-1)
+      else if(['+','-','*','/','^','%'].includes(e.key)) expr += e.key
+      updateDisplay()
+    })
+
+    updateDisplay()
+  </script>
+</body>
+</html>
